@@ -2,7 +2,7 @@ import org.junit.Before;
 
 public class ClouderaAccessTest {
 
-    HDFSFileIO hdfs;
+    private HDFSFileIO hdfs;
 
     @Before
     public void instantiateHDFSFileIO() throws Exception{
@@ -11,7 +11,7 @@ public class ClouderaAccessTest {
 
     @org.junit.Test
     public void testConnection() throws Exception {
-        hdfs.writeToHDFS("C:\\Users\\Josh Cotes\\Downloads\\torbrowser-install-7.0.5_en-US.exe", "/storage");
+        hdfs.writeToHDFS("C:\\Users\\Josh Cotes\\Downloads\\debian-9.1.0-amd64-netinst.iso", "/storage");
     }
 
 }

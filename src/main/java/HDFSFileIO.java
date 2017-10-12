@@ -4,22 +4,17 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.DFSOutputStream;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Progressable;
-import org.apache.log4j.Logger;
 
-import javax.swing.*;
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.net.URL;
 
-public class HDFSFileIO {
+class HDFSFileIO {
 
-    private static final Logger logger = Logger.getLogger("io.saagie.example.hdfs.Main");
     private Configuration mConfig;
     private FileSystem mFileSystem;
     private String mHDFSuri;
@@ -32,7 +27,7 @@ public class HDFSFileIO {
      * @param HDFSport  the port of the HDFS namenode
      * @throws IOException  if uri or port is incorrect
      */
-    public HDFSFileIO(String HDFSuser, String HDFSurl, int HDFSport) throws IOException{
+    HDFSFileIO(String HDFSuser, String HDFSurl, int HDFSport) throws IOException{
 
         String hdfsURIstring = "hdfs://" + HDFSurl + ":" + HDFSport;
         mHDFSuser = HDFSuser;
@@ -50,9 +45,9 @@ public class HDFSFileIO {
      * doesn't exist. Create destination path if doesn't exist. Write path is written on top of the user's
      * home directory.
      * @param writePathHDFS the write path in hdfs
-      * @throws IOException
+      * @throws IOException if file exists
      */
-    public void writeToHDFS(String localReadPath, String writePathHDFS) throws IOException{
+    void writeToHDFS(String localReadPath, String writePathHDFS) throws IOException{
 
         // create a home directory for the username if doesn't exist
         String userHomePath = "/user/" + mHDFSuser;
