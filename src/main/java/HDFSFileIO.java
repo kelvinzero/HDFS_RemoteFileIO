@@ -2,12 +2,9 @@
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.io.IOUtils;
-import org.apache.hadoop.util.Progressable;
 
 import java.io.*;
 import java.net.URI;
-import java.nio.file.Files;
 
 class HDFSFileIO {
 
@@ -60,29 +57,43 @@ class HDFSFileIO {
         if(!inFile.isDirectory())
             inFile.getParentFile().mkdirs();
 
-        long fileLength = mFileSystem.listStatus(new Path(readPathHDFS))[0].getLen();
-        long newMarker = fileLength/50;
-        long bytesWritten = 0;
-        int numBytesRead;
-        byte[] readByte = new byte[1024];
-
         FSDataInputStream inputStream = mFileSystem.open(new Path(readPathHDFS));
         OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(inFile));
+        long fileLength = mFileSystem.listStatus(new Path(readPathHDFS))[0].getLen();
 
-        System.out.println("Copying file: " + readPathHDFS + " ==> " + writePathLocal);
-        System.out.print("[");
-        while((numBytesRead = inputStream.read(readByte)) > 0){
-            outputStream.write(readByte, 0, numBytesRead);
-            bytesWritten++;
-            if(bytesWritten >= newMarker){
-                System.out.print("*");
-                bytesWritten = 0;
-            }
-        }
-        System.out.println("]");
+        System.out.println("Copying file:  " + readPathHDFS + "   ==>   " + writePathLocal);
+        streamTransfer(inputStream, outputStream, fileLength);
         inputStream.close();
         outputStream.close();
         System.out.println("Successfully copied: " + fileName);
+    }
+
+    /**
+     * Writes from a local file to HDFS over the network. Creates a home directory for the userHDFS if one
+     * doesn't exist. Creates the destination path if it doesn't exist.
+     * @param writePathHDFS the write path in hdfs
+     * @throws IOException if file exists
+     */
+    void writeFile(String localReadPath, String writePathHDFS) throws IOException {
+
+        if(!mFileSystem.exists(new Path(writePathHDFS)))
+            mFileSystem.mkdirs(new Path(writePathHDFS));
+
+        String[] splitPath = localReadPath.split("\\\\|/");
+        String outPathHDFS = writePathHDFS + "/" + splitPath[splitPath.length-1];
+
+        if(mFileSystem.exists(new Path(outPathHDFS)))
+            throw new IOException("The file " + outPathHDFS + " already exists. Please delete the file first or append to.");
+
+        InputStream inputStream = new BufferedInputStream(new FileInputStream(localReadPath));
+        FSDataOutputStream outputStream = mFileSystem.create(new Path(outPathHDFS));
+        long fileLength = new File(localReadPath).length();
+
+        System.out.println("Copying file:  " + localReadPath + "   ==>   " + outPathHDFS);
+        streamTransfer(inputStream, outputStream, fileLength);
+        inputStream.close();
+        outputStream.close();
+        System.out.println("Successfully copied: " + splitPath[splitPath.length-1]);
     }
 
     /**
@@ -112,43 +123,31 @@ class HDFSFileIO {
 
         writeFile(localReadPath, mHDFSuserHome + writePathHDFS);
     }
+
     /**
-     * Writes from a local file to HDFS over the network. Creates a home directory for the userHDFS if one
-     * doesn't exist. Creates the destination path if it doesn't exist.
-     * @param writePathHDFS the write path in hdfs
-      * @throws IOException if file exists
+     * Performs a stream data transfer while indicating * for every 2% transfered.
+     * @param is    input stream
+     * @param os    output stream
+     * @param fileLength    the length of the file being transfered
+     * @throws IOException  Throws for file IO errors
      */
-    void writeFile(String localReadPath, String writePathHDFS) throws IOException{
+    private void streamTransfer(InputStream is, OutputStream os, long fileLength) throws IOException{
 
-        if(!mFileSystem.exists(new Path(writePathHDFS)))
-            mFileSystem.mkdirs(new Path(writePathHDFS));
+        long newMarker = fileLength/50;
+        long bytesWritten = 0;
+        int numBytesRead;
+        byte[] readByte = new byte[1024];
 
-        String[] splitPath = localReadPath.split("\\\\|/");
-        String outPathHDFS = writePathHDFS + "/" + splitPath[splitPath.length-1];
-        if(mFileSystem.exists(new Path(outPathHDFS)))
-            throw new IOException("The file " + outPathHDFS + " already exists. Please delete the file first or append to.");
-
-        InputStream is = new BufferedInputStream(new FileInputStream(localReadPath));
-        FSDataOutputStream outputStream = mFileSystem.create(new Path(outPathHDFS), new Progressable() {
-            int count = 0;
-            public void progress() {
+        System.out.print("[");
+        while((numBytesRead = is.read(readByte)) > 0){
+            os.write(readByte, 0, numBytesRead);
+            bytesWritten += numBytesRead;
+            if(bytesWritten >= newMarker){
                 System.out.print("*");
-                count++;
-                if(count >= 125){
-                    System.out.println();
-                    count = 0;
-                }
+                bytesWritten = 0;
             }
-        });
-        System.out.println();
-        System.out.print("Copying file: " + localReadPath + " ==> " + outPathHDFS);
-        System.out.print(" [");
-        IOUtils.copyBytes(is, outputStream, mConfig);
+        }
         System.out.println("]");
-
-        is.close();
-        outputStream.close();
-        System.out.println("Successfully copied: " + splitPath[splitPath.length-1]);
     }
 
     /**

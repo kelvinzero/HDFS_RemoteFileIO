@@ -28,6 +28,25 @@ public class HDFSFileIOTest {
     }
 
     @Test
+    public void writeLargerFile() throws Exception{
+        hdfs.writeFileAsUser("C:\\Users\\Josh Cotes\\Downloads/QuickTimeInstaller.exe", "/storage/quicktime");
+        hdfs.deleteAsUser("/storage/quicktime/QuickTimeInstaller.exe");
+        hdfs.deleteAsUser("/storage/quicktime");
+    }
+
+    @Test
+    public void writeReadLargerFile() throws Exception{
+        hdfs.writeFileAsUser("C:\\Users\\Josh Cotes\\Downloads\\QuickTimeInstaller.exe", "/storage/quicktime");
+
+        hdfs.readFileAsUser("/storage/quicktime/QuickTimeInstaller.exe", "C:\\testdownload");
+        File downloaded = new File("C:\\testdownload\\QuickTimeInstaller.exe");
+        Assert.assertTrue(downloaded.exists());
+        hdfs.deleteAsUser("/storage/quicktime/QuickTimeInstaller.exe");
+        hdfs.deleteAsUser("/storage/quicktime");
+        downloaded.delete();
+    }
+
+    @Test
     public void directoryList() throws Exception {
         System.out.println();
        Arrays.stream(hdfs.directoryList("/user/kelvinzero")).forEach(System.out::println);
