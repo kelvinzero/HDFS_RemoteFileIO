@@ -11,7 +11,7 @@ public class ClouderaAccessTest {
 
     @org.junit.Test
     public void testConnection() throws Exception {
-        hdfs.writeToHDFS("C:\\Users\\Josh Cotes\\Downloads\\debian-9.1.0-amd64-netinst.iso", "/storage");
+        hdfs.writeFileHDFS("C:\\Users\\Josh Cotes\\Downloads\\android-studio-bundle-162.4069837-windows.exe", "/storage");
     }
 
 }

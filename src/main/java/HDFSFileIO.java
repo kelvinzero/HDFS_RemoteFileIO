@@ -2,6 +2,7 @@
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IOUtils;
@@ -47,7 +48,7 @@ class HDFSFileIO {
      * @param writePathHDFS the write path in hdfs
       * @throws IOException if file exists
      */
-    void writeToHDFS(String localReadPath, String writePathHDFS) throws IOException{
+    boolean writeFileHDFS(String localReadPath, String writePathHDFS) throws IOException{
 
         // create a home directory for the username if doesn't exist
         String userHomePath = "/user/" + mHDFSuser;
@@ -68,14 +69,45 @@ class HDFSFileIO {
         // create input and output streams to copy files from local to HDFS
         InputStream is = new BufferedInputStream(new FileInputStream(localReadPath));
         FSDataOutputStream outputStream = mFileSystem.create(new Path(outPathHDFS), new Progressable() {
+            int count = 0;
             public void progress() {
                 System.out.print("*");
+                count++;
+                if(count >= 125){
+                    System.out.println();
+                    count = 0;
+                }
             }
         });
 
+        System.out.println("Copying files..");
+        System.out.println(localReadPath + " ==> " + outPathHDFS);
         System.out.print("\n[");
         IOUtils.copyBytes(is, outputStream, mConfig);
         System.out.println("]");
+        System.out.println("Successful file copy: " + splitPath[splitPath.length-1]);
+        return true;
+    }
+
+    FileStatus[] directoryList(final String path) throws IOException {
+
+        System.out.println("listing directory: " + path);
+        Path filePath = new Path(path);
+        FileStatus[] statusArray = mFileSystem.listStatus(filePath);
+        return statusArray;
+    }
+
+    void directoryCreate(final String path) throws IOException {
+
+        Path filePath = new Path(path);
+        mFileSystem.mkdirs(filePath);
+    }
+
+    public void remove(final String path) throws IOException {
+
+        Path filePath = new Path(path);
+        mFileSystem.delete(filePath, true);
+        mFileSystem.close();
     }
 }
 
