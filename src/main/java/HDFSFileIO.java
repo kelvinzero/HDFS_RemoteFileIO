@@ -1,18 +1,13 @@
 
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.*;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.Progressable;
 
-import java.io.BufferedInputStream;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
+import java.nio.file.Files;
 
 class HDFSFileIO {
 
@@ -20,6 +15,7 @@ class HDFSFileIO {
     private FileSystem mFileSystem;
     private String mHDFSuri;
     private String mHDFSuser;
+    private String mHDFSuserHome;
 
     /**
      * Creates the settings needed to access the cluster and HDFS filesystem.
@@ -32,6 +28,7 @@ class HDFSFileIO {
 
         String hdfsURIstring = "hdfs://" + HDFSurl + ":" + HDFSport;
         mHDFSuser = HDFSuser;
+        mHDFSuserHome = "/user/" + mHDFSuser;
         mConfig = new Configuration();
         mConfig.set("fs.defaultFS", hdfsURIstring);
         mConfig.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
@@ -42,31 +39,95 @@ class HDFSFileIO {
     }
 
     /**
+     * Reads a file from the HDFS over the network and writes it to the local file system. Local directory
+     * is created if it doesn't exist. Read path begins at root.
+     * @param readPathHDFS  path to the file in HDFS
+     * @param writePathLocal    local write path
+     * @throws IOException  Throws if local file exists or the HDFS file doesn't exist
+     */
+    void readFile(String readPathHDFS, String writePathLocal) throws IOException{
+
+        if(!mFileSystem.exists(new Path(readPathHDFS)))
+            throw new IOException("The file: " + readPathHDFS + " doesn't exist.");
+
+        String[] splitReadPath = readPathHDFS.split("\\\\|/");
+        String fileName = splitReadPath[splitReadPath.length-1];
+        File inFile = new File(writePathLocal + "\\" + fileName);
+
+        if(inFile.isFile())
+            throw new IOException("File: " + writePathLocal + "\\" + fileName + " already exists.");
+
+        if(!inFile.isDirectory())
+            inFile.getParentFile().mkdirs();
+
+        long fileLength = mFileSystem.listStatus(new Path(readPathHDFS))[0].getLen();
+        long newMarker = fileLength/50;
+        long bytesWritten = 0;
+        int numBytesRead;
+        byte[] readByte = new byte[1024];
+
+        FSDataInputStream inputStream = mFileSystem.open(new Path(readPathHDFS));
+        OutputStream outputStream = new BufferedOutputStream(new FileOutputStream(inFile));
+
+        System.out.println("Copying file: " + readPathHDFS + " ==> " + writePathLocal);
+        System.out.print("[");
+        while((numBytesRead = inputStream.read(readByte)) > 0){
+            outputStream.write(readByte, 0, numBytesRead);
+            bytesWritten++;
+            if(bytesWritten >= newMarker){
+                System.out.print("*");
+                bytesWritten = 0;
+            }
+        }
+        System.out.println("]");
+        inputStream.close();
+        outputStream.close();
+        System.out.println("Successfully copied: " + fileName);
+    }
+
+    /**
+     * Reads a file from the HDFS over the network and writes it to the local file system. Local directory
+     * is created if it doesn't exist. Read path is on top of the user's home directory.
+     * @param readPathHDFS  path to the file in HDFS
+     * @param writePathLocal    local write path
+     * @throws IOException  Throws if local file exists or the HDFS file doesn't exist
+     */
+    void readFileAsUser(String readPathHDFS, String writePathLocal) throws IOException{
+        readFile(mHDFSuserHome + readPathHDFS, writePathLocal);
+    }
+
+    /**
      * Writes from a local file to HDFS over the network. Creates a home directory for the userHDFS if one
      * doesn't exist. Create destination path if doesn't exist. Write path is written on top of the user's
      * home directory.
      * @param writePathHDFS the write path in hdfs
+     * @throws IOException if file exists
+     */
+    void writeFileAsUser(String localReadPath, String writePathHDFS) throws IOException{
+
+        mFileSystem.setWorkingDirectory(new Path("/user/" + mHDFSuser));
+
+        if(!mFileSystem.exists(new Path(mHDFSuserHome)))
+            mFileSystem.mkdirs(new Path(mHDFSuserHome));
+
+        writeFile(localReadPath, mHDFSuserHome + writePathHDFS);
+    }
+    /**
+     * Writes from a local file to HDFS over the network. Creates a home directory for the userHDFS if one
+     * doesn't exist. Creates the destination path if it doesn't exist.
+     * @param writePathHDFS the write path in hdfs
       * @throws IOException if file exists
      */
-    boolean writeFileHDFS(String localReadPath, String writePathHDFS) throws IOException{
+    void writeFile(String localReadPath, String writePathHDFS) throws IOException{
 
-        // create a home directory for the username if doesn't exist
-        String userHomePath = "/user/" + mHDFSuser;
-        mFileSystem.setWorkingDirectory(new Path("/user/" + mHDFSuser));
-        if(!mFileSystem.exists(new Path(userHomePath)))
-            mFileSystem.mkdirs(new Path(userHomePath));
+        if(!mFileSystem.exists(new Path(writePathHDFS)))
+            mFileSystem.mkdirs(new Path(writePathHDFS));
 
-        // create the destination folder if doesnt exist
-        if(!mFileSystem.exists(new Path(userHomePath + writePathHDFS)))
-            mFileSystem.mkdirs(new Path(userHomePath + writePathHDFS));
-
-        // check if the file already exists in HDFS
         String[] splitPath = localReadPath.split("\\\\|/");
-        String outPathHDFS = userHomePath + writePathHDFS + "/" + splitPath[splitPath.length-1];
+        String outPathHDFS = writePathHDFS + "/" + splitPath[splitPath.length-1];
         if(mFileSystem.exists(new Path(outPathHDFS)))
             throw new IOException("The file " + outPathHDFS + " already exists. Please delete the file first or append to.");
 
-        // create input and output streams to copy files from local to HDFS
         InputStream is = new BufferedInputStream(new FileInputStream(localReadPath));
         FSDataOutputStream outputStream = mFileSystem.create(new Path(outPathHDFS), new Progressable() {
             int count = 0;
@@ -79,34 +140,90 @@ class HDFSFileIO {
                 }
             }
         });
-
-        System.out.println("Copying files..");
-        System.out.println(localReadPath + " ==> " + outPathHDFS);
-        System.out.print("\n[");
+        System.out.println();
+        System.out.print("Copying file: " + localReadPath + " ==> " + outPathHDFS);
+        System.out.print(" [");
         IOUtils.copyBytes(is, outputStream, mConfig);
         System.out.println("]");
-        System.out.println("Successful file copy: " + splitPath[splitPath.length-1]);
-        return true;
+
+        is.close();
+        outputStream.close();
+        System.out.println("Successfully copied: " + splitPath[splitPath.length-1]);
     }
 
+    /**
+     * Returns an array of FileStatus containing informations about items in the path on top of the user directory.
+     * @param path  The hdfs path to list
+     * @return  The FileStatus array of directory contents
+     * @throws IOException  Throws if the path doesn't exist
+     */
     FileStatus[] directoryList(final String path) throws IOException {
 
-        System.out.println("listing directory: " + path);
         Path filePath = new Path(path);
-        FileStatus[] statusArray = mFileSystem.listStatus(filePath);
-        return statusArray;
+        if(!mFileSystem.exists(filePath))
+            throw new IOException("Directory: " + path + "doesn't exist.");
+        return mFileSystem.listStatus(filePath);
     }
 
-    void directoryCreate(final String path) throws IOException {
+    /**
+     * Returns an array of FileStatus containing informations about items in the path on top of the user directory.
+     * @param path  The hdfs path to list
+     * @return  The FileStatus array of directory contents
+     * @throws IOException  Throws if the path doesn't exist
+     */
+    FileStatus[] directoryListAsUser(final String path) throws IOException {
+        return directoryList(mHDFSuserHome + path);
+    }
 
+    /**
+     * Creates a directory in the HDFS on top of the user directory.
+     * @param path  The HDFS directory path to create
+     * @throws IOException  Throws for incorrect privileges and incorrect paths
+     */
+    void directoryCreateAsUser(final String path) throws IOException {
+        directoryCreate(mHDFSuserHome + path);
+    }
+
+    /**
+     * Creates a directory in the HDFS from the root directory.
+     * @param path  The HDFS directory path to create
+     * @throws IOException  Throws for incorrect privileges and incorrect paths
+     */
+    void directoryCreate(final String path) throws IOException {
         Path filePath = new Path(path);
+        if(mFileSystem.exists(filePath))
+            throw new IOException("Directory: " + path + " already exists.");
         mFileSystem.mkdirs(filePath);
     }
 
-    public void remove(final String path) throws IOException {
+    /**
+     * Removes a path or directory from the HDFS starting from root directory.
+     * @param path  The HDFS path to delete
+     * @throws IOException  Throws for non-existent directory or file
+     */
+    void delete(final String path) throws IOException {
 
         Path filePath = new Path(path);
-        mFileSystem.delete(filePath, true);
+        if(!mFileSystem.exists(filePath))
+            throw new IOException("Path to remove: " + path + " doesn't exist.");
+        mFileSystem.delete(filePath, false);
+        System.out.println("Successfully deleted " + path);
+    }
+
+    /**
+     * Removes a path or directory from the HDFS on top of user directory.
+     * @param path  The HDFS path to delete
+     * @throws IOException  Throws for non-existent directory or file
+     */
+    void deleteAsUser(final String path) throws IOException {
+        delete(mHDFSuserHome + path);
+    }
+
+    /**
+     * Closes the HDFS filesystem interface.
+     * @throws IOException  Throws if filesystem configuration is incorrect or not connected.
+     */
+    void close() throws IOException{
         mFileSystem.close();
     }
 }
