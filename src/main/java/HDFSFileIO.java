@@ -1,5 +1,3 @@
-
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 
@@ -10,29 +8,21 @@ class HDFSFileIO {
 
     private Configuration mConfig;
     private FileSystem mFileSystem;
-    private String mHDFSuri;
     private String mHDFSuser;
     private String mHDFSuserHome;
 
     /**
      * Creates the settings needed to access the cluster and HDFS filesystem.
      * @param HDFSuser  the user to operate as
-     * @param HDFSurl   the IP or URL of the HDFS namenode
-     * @param HDFSport  the port of the HDFS namenode
      * @throws IOException  if uri or port is incorrect
      */
-    HDFSFileIO(String HDFSuser, String HDFSurl, int HDFSport) throws IOException{
-
-        String hdfsURIstring = "hdfs://" + HDFSurl + ":" + HDFSport;
+    HDFSFileIO(HDFSConnection connection, String HDFSuser) throws IOException{
+        mConfig = connection.getConfiguration();
         mHDFSuser = HDFSuser;
         mHDFSuserHome = "/user/" + mHDFSuser;
-        mConfig = new Configuration();
-        mConfig.set("fs.defaultFS", hdfsURIstring);
         mConfig.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         mConfig.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-        System.setProperty("HADOOP_USER_NAME", "hdfs");
-        System.setProperty("hadoop.home.dir", "/");
-        mFileSystem = FileSystem.get(URI.create(hdfsURIstring), mConfig);
+        mFileSystem = FileSystem.get(URI.create(connection.getURI()), mConfig);
     }
 
     /**
