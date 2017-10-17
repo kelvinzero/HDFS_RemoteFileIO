@@ -1,10 +1,12 @@
+package hdfs;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 
 import java.io.*;
 import java.net.URI;
 
-class HDFSFileIO {
+public class HDFSFileIO {
 
     private Configuration mConfig;
     private FileSystem mFileSystem;
@@ -16,7 +18,7 @@ class HDFSFileIO {
      * @param HDFSuser  the user to operate as
      * @throws IOException  if uri or port is incorrect
      */
-    HDFSFileIO(HDFSConnection connection, String HDFSuser) throws IOException{
+    public HDFSFileIO(HDFSConnection connection, String HDFSuser) throws IOException{
         mConfig = connection.getConfiguration();
         mHDFSuser = HDFSuser;
         mHDFSuserHome = "/user/" + mHDFSuser;
@@ -32,7 +34,7 @@ class HDFSFileIO {
      * @param writePathLocal    local write path
      * @throws IOException  Throws if local file exists or the HDFS file doesn't exist
      */
-    void readFile(String readPathHDFS, String writePathLocal) throws IOException{
+    public void readFile(String readPathHDFS, String writePathLocal) throws IOException{
 
         if(!mFileSystem.exists(new Path(readPathHDFS)))
             throw new IOException("The file: " + readPathHDFS + " doesn't exist.");
@@ -64,7 +66,7 @@ class HDFSFileIO {
      * @param writePathHDFS the write path in hdfs
      * @throws IOException if file exists
      */
-    void writeFile(String localReadPath, String writePathHDFS) throws IOException {
+    public void writeFile(String localReadPath, String writePathHDFS) throws IOException {
 
         if(!mFileSystem.exists(new Path(writePathHDFS)))
             mFileSystem.mkdirs(new Path(writePathHDFS));
@@ -93,7 +95,7 @@ class HDFSFileIO {
      * @param writePathLocal    local write path
      * @throws IOException  Throws if local file exists or the HDFS file doesn't exist
      */
-    void readFileAsUser(String readPathHDFS, String writePathLocal) throws IOException{
+    public void readFileAsUser(String readPathHDFS, String writePathLocal) throws IOException{
         readFile(mHDFSuserHome + readPathHDFS, writePathLocal);
     }
 
@@ -104,7 +106,7 @@ class HDFSFileIO {
      * @param writePathHDFS the write path in hdfs
      * @throws IOException if file exists
      */
-    void writeFileAsUser(String localReadPath, String writePathHDFS) throws IOException{
+    public void writeFileAsUser(String localReadPath, String writePathHDFS) throws IOException{
 
         mFileSystem.setWorkingDirectory(new Path("/user/" + mHDFSuser));
 
@@ -146,7 +148,7 @@ class HDFSFileIO {
      * @return  The FileStatus array of directory contents
      * @throws IOException  Throws if the path doesn't exist
      */
-    FileStatus[] directoryList(final String path) throws IOException {
+    public FileStatus[] directoryList(final String path) throws IOException {
 
         Path filePath = new Path(path);
         if(!mFileSystem.exists(filePath))
@@ -160,7 +162,7 @@ class HDFSFileIO {
      * @return  The FileStatus array of directory contents
      * @throws IOException  Throws if the path doesn't exist
      */
-    FileStatus[] directoryListAsUser(final String path) throws IOException {
+    public FileStatus[] directoryListAsUser(final String path) throws IOException {
         return directoryList(mHDFSuserHome + path);
     }
 
@@ -169,7 +171,7 @@ class HDFSFileIO {
      * @param path  The HDFS directory path to create
      * @throws IOException  Throws for incorrect privileges and incorrect paths
      */
-    void directoryCreateAsUser(final String path) throws IOException {
+    public void directoryCreateAsUser(final String path) throws IOException {
         directoryCreate(mHDFSuserHome + path);
     }
 
@@ -178,7 +180,7 @@ class HDFSFileIO {
      * @param path  The HDFS directory path to create
      * @throws IOException  Throws for incorrect privileges and incorrect paths
      */
-    void directoryCreate(final String path) throws IOException {
+    public void directoryCreate(final String path) throws IOException {
         Path filePath = new Path(path);
         if(mFileSystem.exists(filePath))
             throw new IOException("Directory: " + path + " already exists.");
@@ -190,7 +192,7 @@ class HDFSFileIO {
      * @param path  The HDFS path to delete
      * @throws IOException  Throws for non-existent directory or file
      */
-    void delete(final String path) throws IOException {
+    public void delete(final String path) throws IOException {
 
         Path filePath = new Path(path);
         if(!mFileSystem.exists(filePath))
@@ -204,7 +206,7 @@ class HDFSFileIO {
      * @param path  The HDFS path to delete
      * @throws IOException  Throws for non-existent directory or file
      */
-    void deleteAsUser(final String path) throws IOException {
+    public void deleteAsUser(final String path) throws IOException {
         delete(mHDFSuserHome + path);
     }
 
@@ -212,7 +214,7 @@ class HDFSFileIO {
      * Closes the HDFS filesystem interface.
      * @throws IOException  Throws if filesystem configuration is incorrect or not connected.
      */
-    void close() throws IOException{
+    public void close() throws IOException{
         mFileSystem.close();
     }
 }

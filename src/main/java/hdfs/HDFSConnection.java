@@ -1,3 +1,5 @@
+package hdfs;
+
 import org.apache.hadoop.conf.Configuration;
 
 public class HDFSConnection {
@@ -11,7 +13,7 @@ public class HDFSConnection {
      * @param HDFSurl   the IP or URL of the HDFS namenode
      * @param HDFSport  the port of the HDFS namenode
      */
-    HDFSConnection(String HDFSurl, int HDFSport, String siteFile){
+    public HDFSConnection(String HDFSurl, int HDFSport, String siteFile){
 
         mSiteFile = siteFile;
         mHDFSURI = "hdfs://" + HDFSurl + ":" + HDFSport;
