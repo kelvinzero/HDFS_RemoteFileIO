@@ -14,7 +14,7 @@ public class HDFSFileIOTest {
 
     @Before
     public void instantiateHDFSFileIO() throws Exception{
-        HDFSConnection conn = new HDFSConnection("192.168.1.110", 8020, "fs.defaultFS");
+        HDFSConnection conn = new HDFSConnection("hdfs", "hdfs://192.168.1.110", 8020, "fs.defaultFS");
         hdfs = new HDFSFileIO(conn, "kelvinzero");
     }
 

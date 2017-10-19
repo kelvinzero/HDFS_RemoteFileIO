@@ -24,7 +24,7 @@ public class HDFSFileIO {
         mHDFSuserHome = "/user/" + mHDFSuser;
         mConfig.set("fs.hdfs.impl", org.apache.hadoop.hdfs.DistributedFileSystem.class.getName());
         mConfig.set("fs.file.impl", org.apache.hadoop.fs.LocalFileSystem.class.getName());
-        mFileSystem = FileSystem.get(URI.create(connection.getURI()), mConfig);
+        mFileSystem = FileSystem.get(URI.create("hdfs://" + connection.getURI()), mConfig);
     }
 
     /**
